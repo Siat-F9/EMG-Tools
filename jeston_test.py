@@ -5,6 +5,7 @@ import threading
 import numpy as np
 from queue import Queue
 
+from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QDesktopWidget
 from scipy import signal
 import time
@@ -17,26 +18,26 @@ import pyqtgraph as pg
 i = 0
 q = Queue(maxsize=0)
 
-VOTE_NUM = 10
+VOTE_NUM = 20
 SAVE_LEN = 5000
 num_classes = 4
 channelNum = 8
 historyLength = 1000
 
-
-gesture_list1 = ['手势向外', '手势向内', '手势向左', '手势向右']
-gesture_list = ['<img src=1.png>',
-                '<img src=2.png>',
-                '<img src=3.png>',
-                '<img src=4.png>']
-
-global F1
+gesture_list = ['<img src=1.png>', '<img src=2.png>', '<img src=3.png>', '<img src=4.png>', '<img src=5.png>',
+                '<img src=6.png>', '<img src=7.png>', '<img src=8.png>', '<img src=9.png>', '<img src=10.png>',
+                '<img src=11.png>', '<img src=12.png>','<img src=13.png>', '<img src=14.png>', '<img src=15.png>',
+                '<img src=16.png>', '<img src=17.png>','<img src=18.png>', '<img src=19.png>', '<img src=20.png>']
+gesture_list1 = ['手势向外', '手势向内', '手势向左(下切)', '手势向右(上切)', '点赞', 'yes', '三指', '四指', '五指', '握拳', '食指', '五指并拢', '握水杯', '拧瓶盖',
+                '握光盘', '抓网球', '握网球', '握笔', '握剪刀', '食指刀切', '握力计']
+# gesture_list1 = ['手势向外', '手势向内', '手势向左(下切)', '手势向右(上切)']
+# gesture_list = ['<img src=1.png>', '<img src=2.png>', '<img src=3.png>', '<img src=4.png>']
+global F1;
 global M;
 global lamda;
 global I;
 global c;
 global x_noise;
-
 global P_last;
 global w_last;
 global is_draw;
@@ -218,13 +219,14 @@ def rls_algo(sample):
 
 
 def Serial():
-    global i
-    global q
-    global current_label
+    global i;
+    global q;
+    global current_label;
     head = [-1, -1, -1, -1, -1]
     count = 0
     data2 = array.array('i')  # 可动态改变数组的大小,double型数组
     data2 = np.zeros((channelNum, historyLength)).__array__('d')  # 把数组长度定下来
+
     data_rls2 = array.array('i')  # 可动态改变数组的大小,double型数组
     data_rls2 = np.zeros((channelNum, historyLength)).__array__('d')  # 把数组长度定下来
     vote_queue = [0 for i in range(VOTE_NUM)]
@@ -234,12 +236,13 @@ def Serial():
         for i in range(5):
             head[i] = mSerial.read(1)
         while True:
-            if head[0] == b'\x01' and head[1] == b'\x02' and head[2] == b'\x03' and head[3] == b'\x04'\
-                    and head[4] == b'\x05':
+            if head[0] == b'\x01' and head[1] == b'\x02' and head[2] == b'\x03' and head[3] == b'\x04' and head[
+                4] == b'\x05':
 
                 count = count + 1
                 print("rev:", count)
                 message = mSerial.read(320)
+                # print(message[0:40])
                 emg_serial_data = np.array([x for x in message]).reshape(8, 40) / 4096 * 3.3
                 emg_frame_data = emg_serial_data[:, 0::2] * 256 + emg_serial_data[:, 1::2]
 
@@ -247,13 +250,12 @@ def Serial():
                 data[:, 980:1000] = emg_frame_data
                 data2 = data
 
-                model_data = data[:,940:1000]
                 # for i in range(channelNum):
                 data_rls[0, 0:980] = data_rls2[0, 20:1000]
                 data_rls[0, 980:1000] = rls_algo(data[0, 980:1000])
                 data_rls2 = data_rls
 
-                images = torch.Tensor(model_data).reshape(1, 8, 60)
+                images = torch.Tensor(emg_frame_data).reshape(1, 8, 20)
                 outputs = model(images)
                 _, predicted = torch.max(outputs.data, 1)
                 print(predicted)
@@ -281,9 +283,8 @@ def plotData():
     print('plot:', count_plot)
     for channel in range(len(curves)):
         curves[channel].setData(data[channel])
-    # 图片label内容设定
-    # label.setText(gesture_list[current_label])
-    # 文字label内容设定
+    label.setText(gesture_list[current_label])
+
     label1.setText(gesture_list1[current_label])
 
 
@@ -305,9 +306,9 @@ if __name__ == "__main__":
     data_rls = np.zeros((channelNum, historyLength)).__array__('d')  # 把数组长度定下来
 
     curves = []
-    # label=win.addLabel(gesture_list[current_label])
-    # win.nextRow()
-    label1=win.addLabel(gesture_list1[current_label])
+    label = win.addLabel(gesture_list[current_label])
+    win.nextRow()
+    label1 = win.addLabel(gesture_list1[current_label])
     win.nextRow()
 
     for channel in range(channelNum):
@@ -322,11 +323,9 @@ if __name__ == "__main__":
 
         win.nextRow()
 
-    # portx = 'COM5'
-    # portx = '/dev/tty.usbserial-AR0K409Y'
+    portx = 'COM5'
+    # portx = '/dev/tty.usbmodemADPT0157431'
     # portx = "/dev/ttyTHS1"
-    portx = '/dev/tty.usbmodemADPT0157431'
-
     bps = 230400
     # 串口执行到这已经打开 再用open命令会报错
     mSerial = serial.Serial(portx, int(bps))
